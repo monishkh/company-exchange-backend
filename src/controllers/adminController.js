@@ -1,6 +1,7 @@
 import { connection } from "../config/db.js";
 
 
+
 // ✅ Approve/Reject Seller Post
 export const approveSeller = (req, res) => {
   const { id } = req.params;

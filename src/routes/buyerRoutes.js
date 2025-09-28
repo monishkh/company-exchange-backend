@@ -4,24 +4,34 @@ import {
   getBuyersByUser,
   getBuyerById,
   deleteBuyer,
-  getAllBuyers,
+  getAllBuyersAdmin,
+  updateBuyerStatus,
+  getApprovedBuyersForUser,
 } from "../controllers/buyerController.js";
 
 const router = express.Router();
 
-// Create buyer post
+// ----------------- Buyer Routes -----------------
+
+// Create a new buyer post
 router.post("/create", createBuyer);
 
-// GET → fetch all buyers
-router.get("/", getAllBuyers);
+// Admin: Get all buyers (paginated)
+router.get("/all", getAllBuyersAdmin);
 
-// Get all buyers by user
+// User: Get approved buyers
+router.get("/approved", getApprovedBuyersForUser);
+
+// User: Get all buyers by a specific user
 router.get("/user/:userId", getBuyersByUser);
 
-// Get single buyer by ID
+// Get single buyer by ID (dynamic route, must be last among GET routes)
 router.get("/:id", getBuyerById);
 
-// Delete buyer
+// Delete buyer by ID
 router.delete("/:id", deleteBuyer);
+
+// Update buyer status
+router.put("/:id/status", updateBuyerStatus);
 
 export default router;

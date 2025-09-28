@@ -1,5 +1,5 @@
 import express from "express";
-import { createSeller, getAllSellers, getSellersByUser } from "../controllers/sellerController.js";
+import { createSeller, getAllSellersForAdmin, getApprovedSellersForUser, getSellersByUser, updateSellerStatus } from "../controllers/sellerController.js";
 
 const router = express.Router();
 
@@ -7,9 +7,13 @@ const router = express.Router();
 router.post("/create", createSeller);
 
 // Get all sellers
-router.get("/", getAllSellers);
+router.get("/", getAllSellersForAdmin);
+router.get("/getApprovedSellers", getApprovedSellersForUser);
 
 // Get sellers by user
 router.get("/user/:userId", getSellersByUser);
+
+// 🔹 New Route
+router.put("/seller/:id/status", updateSellerStatus);
 
 export default router;
