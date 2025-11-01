@@ -1,94 +1,79 @@
-import { connection } from "../config/db.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
+import { pool } from "../config/db.js";
 
-// Register user
-export const registerUser = (req, res) => {
+// ✅ Register User
+export const registerUser = async (req, res) => {
   console.log("registerUser Data", req.body);
 
   const { fullName, phone, email, password } = req.body;
 
-  // 1️⃣ Validation
   if (!fullName || !phone || !password) {
     return res
       .status(400)
       .json({ error: "Full name, phone, and password are required" });
   }
 
-  // 2️⃣ Generate Nanoid for user ID
-  const id = nanoid(20);
+  try {
+    // 1️⃣ Check if user exists by phone OR email
+    const checkSql =
+      "SELECT phone, email FROM users WHERE phone = ? OR email = ?";
+    const [existing] = await pool.execute(checkSql, [phone, email || ""]);
 
-  // 3️⃣ Check if phone or email already exists
-  const checkSql = "SELECT * FROM users WHERE phone = ? OR email = ?";
-  connection.query(checkSql, [phone, email || ""], (err, results) => {
-    if (err) {
-      console.error("❌ Error checking user:", err.message);
-      return res.status(500).json({ error: "Database error" });
-    }
-
-    if (results.length > 0) {
+    if (existing.length > 0) {
       let errors = {};
-
-      // Check separately
-      const phoneExists = results.some((row) => row.phone === phone);
-      const emailExists = email
-        ? results.some((row) => row.email === email)
-        : false;
-
-      if (phoneExists) errors.phone = "Phone number already registered";
-      if (emailExists) errors.email = "Email already registered";
+      if (existing.some((u) => u.phone === phone))
+        errors.phone = "Phone number already registered";
+      if (email && existing.some((u) => u.email === email))
+        errors.email = "Email already registered";
 
       return res.status(400).json({ error: errors });
     }
 
-    // 4️⃣ Hash password
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    // 2️⃣ Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const id = nanoid(20);
 
-    // 5️⃣ Insert into DB
+    // 3️⃣ Save new user
     const insertSql =
-      "INSERT INTO users (id, fullname, phone, email, password) VALUES (?, ?, ?, ?, ?)";
-    connection.query(
-      insertSql,
-      [id, fullName, phone, email || null, hashedPassword],
-      (err) => {
-        if (err) {
-          console.error("❌ Error inserting user:", err.message);
-          return res.status(500).json({ error: "Database error" });
-        }
+      "INSERT INTO users (id, fullname, phone, email, password, role) VALUES (?, ?, ?, ?, ?, ?)";
+    await pool.execute(insertSql, [
+      id,
+      fullName,
+      phone,
+      email || null,
+      hashedPassword,
+      "user", // default role
+    ]);
 
-        // 6️⃣ Return Nanoid as userId
-        res.status(201).json({
-          message: "User registered successfully",
-          userId: id,
-        });
-      }
-    );
-  });
+    return res.status(201).json({
+      message: "User registered successfully",
+      userId: id,
+    });
+  } catch (err) {
+    console.error("❌ Register Error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
 };
 
-// Login user (phone + password only)
-export const loginUser = (req, res) => {
+// ✅ Login User
+export const loginUser = async (req, res) => {
   console.log("loginUser Data", req.body);
 
   const { phone, password } = req.body;
 
-  // validation
   if (!phone || !password) {
     return res
       .status(400)
       .json({ error: "Phone number and password are required" });
   }
 
-  // Find user by phone
-  const sql = "SELECT * FROM users WHERE phone = ? LIMIT 1";
-  connection.query(sql, [phone], async (err, results) => {
-    if (err) {
-      console.error("❌ DB error:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
+  try {
+    const sql = "SELECT * FROM users WHERE phone = ? LIMIT 1";
+    const [results] = await pool.execute(sql, [phone]);
 
-    if (!results || results.length === 0) {
+    if (results.length === 0) {
       return res
         .status(400)
         .json({ error: "User not found with this phone number" });
@@ -96,46 +81,38 @@ export const loginUser = (req, res) => {
 
     const user = results[0];
 
-    // Compare password (bcrypt.compare returns a promise)
-    try {
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(401).json({ error: "Invalid password" });
-      }
-    } catch (compareErr) {
-      console.error("❌ Bcrypt compare error:", compareErr);
-      return res.status(500).json({ error: "Server error" });
+    console.log('user_ ', user);
+    
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid password" });
     }
 
-    // Generate JWT token (no role, no email)
     const token = jwt.sign(
-      { id: user.id, phone: user.phone },
+      { id: user.id, phone: user.phone, role: user.role },
       process.env.JWT_SECRET || "REPLACE_WITH_SECURE_SECRET",
       { expiresIn: "1h" }
     );
 
-    console.log('user res, ', user);
-    
-    // Response
     return res.json({
       message: "Login successful",
       token,
       user: {
         id: user.id,
-        fullName: user.fullname || user.full_name || null,
+        fullName: user.fullname,
         phone: user.phone,
-        role: user.role
+        role: user.role,
       },
     });
-
-    
-    
-
-  });
+  } catch (err) {
+    console.error("❌ Login Error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
 };
 
-// Admin login only with email + password
-export const adminLogin = (req, res) => {
+// ✅ Admin Login (email + password)
+export const adminLogin = async (req, res) => {
   console.log("adminLogin Data", req.body);
 
   const { email, password } = req.body;
@@ -144,24 +121,35 @@ export const adminLogin = (req, res) => {
     return res.status(400).json({ error: "Email and password required" });
   }
 
-  const sql = `SELECT * FROM users WHERE email = ? AND role = 'admin' LIMIT 1`;
-  connection.query(sql, [email], async (err, results) => {
-    if (err) return res.status(500).json({ error: "DB error" });
-    if (results.length === 0)
+  try {
+    const sql =
+      "SELECT * FROM users WHERE email = ? AND role = 'admin' LIMIT 1";
+    const [results] = await pool.execute(sql, [email]);
+
+    if (results.length === 0) {
       return res.status(404).json({ error: "Admin not found" });
+    }
 
     const admin = results[0];
-    // const isMatch = await bcrypt.compare(password, admin.password);
-    // if (!isMatch) return res.status(401).json({ error: "Invalid password" });
 
-    const token = jwt.sign({ id: admin.id, role: "admin" }, "SECRET_KEY", {
-      expiresIn: "1h",
-    });
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid password" });
+    }
 
-    res.json({
+    const token = jwt.sign(
+      { id: admin.id, role: "admin" },
+      process.env.JWT_SECRET || "REPLACE_WITH_SECURE_SECRET",
+      { expiresIn: "1h" }
+    );
+
+    return res.json({
       message: "Admin login successful",
       token,
       user: { id: admin.id, email: admin.email, role: "admin" },
     });
-  });
+  } catch (err) {
+    console.error("❌ Admin Login Error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
 };

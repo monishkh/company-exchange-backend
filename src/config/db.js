@@ -1,17 +1,24 @@
-import mysql from "mysql2";
+import mysql from "mysql2/promise";
+import dotenv from "dotenv";
+dotenv.config();
 
-// Create connection
-export const connection = mysql.createConnection({
+export const pool = mysql.createPool({
   host: "localhost",
   user: "root",
-  database: "company_exchange"     // make sure this DB exists
+  // password: process.env.DB_PASS,
+  database: "company_exchange",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-// Connect
-connection.connect((err) => {
-  if (err) {
-    console.error("❌ MySQL connection failed:", err);
-  } else {
-    console.log("✅ MySQL connected successfully!");
+// ✅ Test database connection
+(async () => {
+  try {
+    const connection = await pool.getConnection();
+    console.log("✅ MySQL Pool connected successfully!");
+    connection.release();
+  } catch (err) {
+    console.error("❌ MySQL Pool connection failed:", err.message);
   }
-});
+})();

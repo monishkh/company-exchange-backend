@@ -1,69 +1,87 @@
-import { connection } from "../config/db.js";
+import { pool } from "../config/db.js";
 
-
-
-// ✅ Approve/Reject Seller Post
-export const approveSeller = (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body; // 'accept', 'reject', 'pending'
-
-  if (!["accept", "reject", "pending"].includes(status)) {
-    return res.status(400).json({ error: "Invalid status" });
-  }
-
-  const sql = "UPDATE sellers SET status = ? WHERE id = ?";
-  connection.query(sql, [status, id], (err, results) => {
-    if (err) {
-      console.error("❌ Error updating seller status:", err);
-      return res.status(500).json({ error: "Failed to update seller status" });
-    }
-    res.json({ message: `✅ Seller status updated to ${status}` });
-  });
-};
-
-// ✅ Approve/Reject Buyer Post
-export const approveBuyer = (req, res) => {
+// ✅ Approve / Reject Seller Post
+export const approveSeller = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
   if (!["accept", "reject", "pending"].includes(status)) {
-    return res.status(400).json({ error: "Invalid status" });
+    return res.status(400).json({ error: "Invalid status value" });
   }
 
-  const sql = "UPDATE buyers SET status = ? WHERE id = ?";
-  connection.query(sql, [status, id], (err, results) => {
-    if (err) {
-      console.error("❌ Error updating buyer status:", err);
-      return res.status(500).json({ error: "Failed to update buyer status" });
+  try {
+    const sql = "UPDATE sellers SET status = ? WHERE id = ?";
+    const [result] = await pool.execute(sql, [status, id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Seller not found" });
     }
+
+    res.json({ message: `✅ Seller status updated to ${status}` });
+  } catch (err) {
+    console.error("❌ Error updating seller:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// ✅ Approve / Reject Buyer Post
+export const approveBuyer = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!["accept", "reject", "pending"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status value" });
+  }
+
+  try {
+    const sql = "UPDATE buyers SET status = ? WHERE id = ?";
+    const [result] = await pool.execute(sql, [status, id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Buyer not found" });
+    }
+
     res.json({ message: `✅ Buyer status updated to ${status}` });
-  });
+  } catch (err) {
+    console.error("❌ Error updating buyer:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 };
 
 // ✅ Delete Seller Post
-export const deleteSeller = (req, res) => {
+export const deleteSeller = async (req, res) => {
   const { id } = req.params;
 
-  const sql = "DELETE FROM sellers WHERE id = ?";
-  connection.query(sql, [id], (err, results) => {
-    if (err) {
-      console.error("❌ Error deleting seller:", err);
-      return res.status(500).json({ error: "Failed to delete seller" });
+  try {
+    const sql = "DELETE FROM sellers WHERE id = ?";
+    const [result] = await pool.execute(sql, [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Seller not found" });
     }
+
     res.json({ message: "🗑️ Seller deleted successfully" });
-  });
+  } catch (err) {
+    console.error("❌ Error deleting seller:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 };
 
 // ✅ Delete Buyer Post
-export const deleteBuyer = (req, res) => {
+export const deleteBuyer = async (req, res) => {
   const { id } = req.params;
 
-  const sql = "DELETE FROM buyers WHERE id = ?";
-  connection.query(sql, [id], (err, results) => {
-    if (err) {
-      console.error("❌ Error deleting buyer:", err);
-      return res.status(500).json({ error: "Failed to delete buyer" });
+  try {
+    const sql = "DELETE FROM buyers WHERE id = ?";
+    const [result] = await pool.execute(sql, [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Buyer not found" });
     }
+
     res.json({ message: "🗑️ Buyer deleted successfully" });
-  });
+  } catch (err) {
+    console.error("❌ Error deleting buyer:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 };
