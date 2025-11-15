@@ -5,8 +5,8 @@ dotenv.config();
 export const pool = mysql.createPool({
   host: "localhost",
   user: "root",
-  // password: process.env.DB_PASS,
-  database: "company_exchange",
+  password: process.env.DB_PASS || "123456", // fallback to direct password
+  database: "companyXchange",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
