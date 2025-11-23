@@ -57,50 +57,64 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// ✅ Login User
+// ✅ Login User by Email
 export const loginUser = async (req, res) => {
-  console.log("loginUser Data", req.body);
+  console.log("🔐 Login Request:", req.body);
 
-  const { phone, password } = req.body;
+  const { email, password } = req.body;
 
-  if (!phone || !password) {
-    return res
-      .status(400)
-      .json({ error: "Phone number and password are required" });
+  // ---- Validation ----
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required" });
   }
 
   try {
-    const sql = "SELECT * FROM users WHERE phone = ? LIMIT 1";
-    const [results] = await pool.execute(sql, [phone]);
+    // ---- Find user by email ----
+    const sql = "SELECT * FROM users WHERE email = ? LIMIT 1";
+    const [results] = await pool.execute(sql, [email]);
 
     if (results.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "User not found with this phone number" });
+      return res.status(400).json({ error: "User not found with this email" });
     }
 
     const user = results[0];
+    console.log("👤 User Found:", user);
 
-    console.log('user_ ', user);
-    
+    // ---- Password Check ----
+    let isMatch = false;
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    // ⭐ ADMIN LOGIC (plain password "123456")
+    if (user.role === "admin") {
+      isMatch = password === user.password;
+    }
+    // ⭐ OTHER USERS (hashed password in DB)
+    else {
+      isMatch = await bcrypt.compare(password, user.password);
+    }
+
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid password" });
     }
 
+    // ---- JWT Token ----
     const token = jwt.sign(
-      { id: user.id, phone: user.phone, role: user.role },
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
       process.env.JWT_SECRET || "REPLACE_WITH_SECURE_SECRET",
       { expiresIn: "1h" }
     );
 
+    // ---- Response ----
     return res.json({
       message: "Login successful",
       token,
       user: {
         id: user.id,
-        fullName: user.fullname,
+        fullName: user.full_name,
+        email: user.email,
         phone: user.phone,
         role: user.role,
       },
@@ -110,6 +124,7 @@ export const loginUser = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+
 
 // ✅ Admin Login (email + password)
 export const adminLogin = async (req, res) => {

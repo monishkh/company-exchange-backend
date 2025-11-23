@@ -11,7 +11,7 @@ app.use(express.json());
 
 // CORS FIX
 const corsOptions = {
-  origin: "http://localhost:3000",
+  origin: ["http://localhost:3000", "null"], // Postman -> origin: null
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -19,14 +19,19 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+
 // ⭐ THE REAL FIX (Express v5 global preflight)
-app.options("/", cors(corsOptions));
+// app.options("/", cors(corsOptions));
 
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/sellers", sellerRoutes);
 app.use("/api/buyers", buyerRoutes);
 app.use("/api/admin", adminRoutes);
+
+
+// Static path for uploaded files access
+app.use("/uploads", express.static("src/uploads"));
 
 // Test DB
 app.get("/test-db", async (req, res) => {
@@ -40,6 +45,6 @@ app.get("/test-db", async (req, res) => {
 });
 
 // Start server
-app.listen(5000, () => {
-  console.log("🚀 Server running on http://localhost:5000");
+app.listen(4048, () => {
+  console.log("🚀 Server running on http://localhost:4048");
 });

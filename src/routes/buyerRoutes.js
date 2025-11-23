@@ -7,6 +7,8 @@ import {
   getAllBuyersAdmin,
   updateBuyerStatus,
   getApprovedBuyersForUser,
+  getSingleBuyer,
+  updateBuyer,
 } from "../controllers/buyerController.js";
 
 const router = express.Router();
@@ -15,6 +17,9 @@ const router = express.Router();
 
 // Create a new buyer post
 router.post("/create", createBuyer);
+
+// Get single seller post
+router.get("/buyer/:buyer_id", getSingleBuyer);
 
 // Admin: Get all buyers (paginated)
 router.get("/all", getAllBuyersAdmin);
@@ -27,6 +32,10 @@ router.get("/user/:userId", getBuyersByUser);
 
 // Get single buyer by ID (dynamic route, must be last among GET routes)
 router.get("/:id", getBuyerById);
+
+
+// Update buyer post (EDIT)
+router.put("/buyer/:buyer_id", updateBuyer);
 
 // Delete buyer by ID
 router.delete("/:id", deleteBuyer);
