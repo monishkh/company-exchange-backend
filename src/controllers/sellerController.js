@@ -362,6 +362,12 @@ export const getApprovedSellersForUser = async (req, res) => {
     console.log('SQL:', sql);
     const [sellers] = await pool.execute(sql, params);
 
+    // ✅ FORMAT TAGS LIKE BUYERS API
+    const formatted = sellers.map(s => ({
+      ...s,
+      tags: s.tags ? JSON.parse(s.tags) : []
+    }));
+
     res.json({
       currentPage: page,
       totalPages,
